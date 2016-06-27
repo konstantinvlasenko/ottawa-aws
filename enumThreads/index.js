@@ -13,7 +13,7 @@ exports.handler = (event, context, callback) => {
       if(_links.length > 0){
         let _params = {
           RequestItems: {
-            TEST: _links.map((l) => { return { PutRequest: { Item: l } }; })
+            threads: _links.map((l) => { return { PutRequest: { Item: l } }; })
           }
         };
         dynamodb.batchWrite(_params, (err, data) => {
