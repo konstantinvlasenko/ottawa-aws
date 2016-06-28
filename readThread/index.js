@@ -6,6 +6,7 @@ exports.handler = (event, context, callback) => {
   //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?6080-Montreal-Pere-Noel-2nd-round'}}}}];// - 6
   //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?14408-Quebec-Carnival-tournament-after-round-1'}}}}];// - 18
   //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?10270-Eric-Hansen-Sam-Shankland-incredible-finish!'}}}}];// - 1 full game
+  //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?522-CanBase-II-Canadian-games-database-update'}}}}];// - 1/2-\r\n1/2
   processRecords(event, (err) => {
     if (err) callback(err);
     else callback();
@@ -41,8 +42,9 @@ function processRecords(event, callback){
   }else callback();
 }
 function findGames(body, url){
+  body = body.replace(/<br \/>/g, '');
   let _games = [];
-  let _regex = /(?:\\r\\n)(\[Event .*?(1\/2-1\/2|1-1\/2|1\/2-1|1-0|0-1))(<br \/>|)\\r\\n/g;
+  let _regex = /(?:\\r\\n)(\[Event .*?(1\/2-1\/2|1\/2-\\r\\n1\/2|1-1\/2|1\/2-1|1-0|0-1))\\r\\n/g;
   let _match = _regex.exec(body);
   while(_match !== null){
     let _pgn = _match[1].replace(/&quot;/g,'"');
@@ -57,11 +59,11 @@ function findGames(body, url){
   return _games;
 }
 function PGN2JSON(pgn){
-    let _regex = /^(\[(.|<br \/>\\r\\n)*\])(<br \/>\\r\\n)*\s?1.(<br \/>\\r\\n|.)*$/g; 
+    let _regex = /^(\[(.|\\r\\n)*\])(\\r\\n)*({.*?})?\s?1\.(\\r\\n|.)*$/g;  
     /* get header part of the PGN file */
     //let _match = _regex.exec(pgn);
     let _headerString = pgn.replace(_regex, '$1');
-    let _headers = _headerString.split(/<br \/>\\r\\n/);
+    let _headers = _headerString.split(/\\r\\n/);
     let _game = {};
     for (var i = 0; i < _headers.length; i++) {
       let key = _headers[i].replace(/^\[([A-Z][A-Za-z]*)\s.*\]$/, '$1');
@@ -71,7 +73,7 @@ function PGN2JSON(pgn){
       }
     }
     /* delete header to get the moves */
-    _game.moves = pgn.replace(_headerString, '').replace(/<br \/>\\r\\n/g, ' ');
+    _game.moves = pgn.replace(_headerString, '').replace(/\\r\\n/g, ' ');
     return _game;
 }
 function saveGames(games, callback){
