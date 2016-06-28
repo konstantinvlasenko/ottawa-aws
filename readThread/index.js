@@ -3,6 +3,9 @@ const AWS = require('aws-sdk');
 let http = require('http');
 const dynamodb = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
 exports.handler = (event, context, callback) => {
+  //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?6080-Montreal-Pere-Noel-2nd-round'}}}}];// - 6
+  //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?14408-Quebec-Carnival-tournament-after-round-1'}}}}];// - 18
+  //event.Records = [{eventName: 'INSERT', dynamodb: { Keys: { href: { S: 'http://forum.chesstalk.com/showthread.php?10270-Eric-Hansen-Sam-Shankland-incredible-finish!'}}}}];// - 1 full game
   processRecords(event, (err) => {
     if (err) callback(err);
     else callback();
@@ -18,9 +21,7 @@ function processRecords(event, callback){
         res.setEncoding('utf8');
         res.on('data', (chunk) => body += chunk);
         res.on('end', () => {
-          var _games = findGames(body, _url);
-          if(_games.length > 0){
-            _games = unique(_games);
+          var _games = unique(findGames(body, _url));
             updateCount(_url, _games.length, (err) => {
               if (err) callback(err);
               else {
@@ -33,7 +34,6 @@ function processRecords(event, callback){
                 });
               }
             });
-          }else processRecords(event, callback);
         });
       });
       req.on('error', callback);
@@ -41,28 +41,38 @@ function processRecords(event, callback){
   }else callback();
 }
 function findGames(body, url){
-  let _regex = /\\r\\n\[Event .*?(1\/2-1\/2|1-1\/2|1\/2-1|1-0|0-1)(<br.*?>|)\\r\\n/g;
-  let _found = body.match(_regex);
-  if(_found === null) return [];
-  else return _found.map((pgn) => {
-    //let _parts = pgn.replace(/<br.*?>/g, '').replace(/\\r\\n/g, '').replace(/&quot;/g,'"').replace(/\[%.*?\]/g, '').replace(/\[/g,'').split(']<br />\r\n');
-    let _parts = pgn.replace(/&quot;/g,'"').replace(/\[/g,'').split(']<br />\r\n');
+  let _games = [];
+  let _regex = /(?:\\r\\n)(\[Event .*?(1\/2-1\/2|1-1\/2|1\/2-1|1-0|0-1))(<br \/>|)\\r\\n/g;
+  let _match = _regex.exec(body);
+  while(_match !== null){
+    let _pgn = _match[1].replace(/&quot;/g,'"');
+    if(_pgn.indexOf('1.') > -1){ // full game from move 1.
+        let _game = PGN2JSON(_pgn);
+        _game.url = url;
+        _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
+        _games.push({ PutRequest: { Item: _game } });
+    }
+    _match = _regex.exec(body);
+  }
+  return _games;
+}
+function PGN2JSON(pgn){
+    let _regex = /^(\[(.|<br \/>\\r\\n)*\])(<br \/>\\r\\n)*\s?1.(<br \/>\\r\\n|.)*$/g; 
+    /* get header part of the PGN file */
+    //let _match = _regex.exec(pgn);
+    let _headerString = pgn.replace(_regex, '$1');
+    let _headers = _headerString.split(/<br \/>\\r\\n/);
     let _game = {};
-    _game.moves = _parts.pop().replace(/\\r\\n/g, '').replace(/<br.*?>/g, '');
-    _parts.forEach((p) => {
-      let _prop = p.split(' "');
-      if(_prop[1] === undefined){
-           console.log(url);
-           console.log(_prop);
+    for (var i = 0; i < _headers.length; i++) {
+      let key = _headers[i].replace(/^\[([A-Z][A-Za-z]*)\s.*\]$/, '$1');
+      let value = _headers[i].replace(/^\[[A-Za-z]+\s"(.*)"\]$/, '$1');
+      if (trim(key).length > 0 && value !== '' && value !== '?' && value !== null ) {
+        _game[trim(key)] = value;
       }
-      _game[_prop[0]] = _prop[1].slice(0,-1).replace(/\\r\\n/g, '').replace(/<br.*?>/g, '');
-    });
-    Object.keys(_game).forEach(function(k){
-      if(_game[k] === '' || _game[k] === '?' || _game[k] === null || (Array.isArray(_game[k]) && _game[k].length === 0)) delete _game[k];
-    });
-    _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
-    return { PutRequest: { Item: _game } };
-  });
+    }
+    /* delete header to get the moves */
+    _game.moves = pgn.replace(_headerString, '').replace(/<br \/>\\r\\n/g, ' ');
+    return _game;
 }
 function saveGames(games, callback){
   if(games.length > 0){
@@ -97,4 +107,7 @@ function updateCount(url, count, callback){
     if(e) callback(e);
     else callback();
   });
+}
+function trim(str) {
+  return str.replace(/^\s+|\s+$/g, '');
 }
