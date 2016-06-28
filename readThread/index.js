@@ -17,7 +17,7 @@ function processRecords(event, callback){
     var _rec = event.Records.shift();
     if(_rec.eventName === 'INSERT'){
       let _url = _rec.dynamodb.Keys.href.S;
-      //console.log(_url);  
+      console.log(_url);  
       const req = http.get(_url, (res) => {
         let body = '';
         res.setEncoding('utf8');
@@ -67,7 +67,8 @@ function findGames(body, url){
   return _games;
 }
 function PGN2JSON(pgn){
-    let _regex = /^(\[(.|\\r\\n)*\])(\\r\\n)*({.*?})?\s?\.*\d+?\.(\\r\\n|.)*$/g;   
+    //let _regex = /^(\[(.|\\r\\n)*\])(\\r\\n)*({.*?})?\s?\.*\d+?\.(\\r\\n|.)*$/g;   
+    let _regex = /^(\[.*\])(?:\\r\\n)*({.*?})*\s*\.*(\d+\..*)/g; 
     /* get header part of the PGN file */
     //let _match = _regex.exec(pgn);
     let _headerString = pgn.replace(_regex, '$1');
