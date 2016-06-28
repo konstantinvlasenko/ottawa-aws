@@ -43,7 +43,7 @@ function processRecords(event, callback){
   }else callback();
 }
 function findGames(body, url){
-  body = body.replace(/<br \/>/g, '');
+  body = body.replace(/<[^>]*>/ig, '');
   let _games = [];
   let _regex = /(?:\\r\\n)(\[Event .*?(1\/2-1\/2|1\/2-\\r\\n1\/2|1-1\/2|1\/2-1|1-0|0-1))\\r\\n/g;
   let _match = _regex.exec(body);
