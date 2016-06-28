@@ -48,11 +48,16 @@ function findGames(body, url){
   let _match = _regex.exec(body);
   while(_match !== null){
     let _pgn = _match[1].replace(/&quot;/g,'"');
+    /* delete recursive annotation variations */
+    let rav_regex = /(\([^\(\)]+\))+?/g;
+    while (rav_regex.test(_pgn)) {
+       _pgn = _pgn.replace(rav_regex, '');
+    }
     if(_pgn.indexOf('1.') > -1){ // full game from move 1.
-        let _game = PGN2JSON(_pgn);
-        _game.url = url;
-        _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
-        _games.push({ PutRequest: { Item: _game } });
+      let _game = PGN2JSON(_pgn);
+      _game.url = url;
+      _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
+      _games.push({ PutRequest: { Item: _game } });
     }
     _match = _regex.exec(body);
   }
