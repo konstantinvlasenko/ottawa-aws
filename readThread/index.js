@@ -17,6 +17,7 @@ function processRecords(event, callback){
     var _rec = event.Records.shift();
     if(_rec.eventName === 'INSERT'){
       let _url = _rec.dynamodb.Keys.href.S;
+      //console.log(_url);  
       const req = http.get(_url, (res) => {
         let body = '';
         res.setEncoding('utf8');
@@ -51,20 +52,22 @@ function findGames(body, url){
     /* delete recursive annotation variations */
     let rav_regex = /(\([^\(\)]+\))+?/g;
     while (rav_regex.test(_pgn)) {
-       _pgn = _pgn.replace(rav_regex, '');
+        _pgn = _pgn.replace(rav_regex, '');
     }
-    if(_pgn.indexOf('1.') > -1){ // full game from move 1.
-      let _game = PGN2JSON(_pgn);
-      _game.url = url;
-      _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
-      _games.push({ PutRequest: { Item: _game } });
+    rav_regex = /({[^{}]+})+?/g;
+    while (rav_regex.test(_pgn)) {
+        _pgn = _pgn.replace(rav_regex, '');
     }
+    let _game = PGN2JSON(_pgn);
+    _game.url = url;
+    _game.id = _game.Date + '|' + _game.White + '|' + _game.Black;
+    _games.push({ PutRequest: { Item: _game } });
     _match = _regex.exec(body);
   }
   return _games;
 }
 function PGN2JSON(pgn){
-    let _regex = /^(\[(.|\\r\\n)*\])(\\r\\n)*({.*?})?\s?1\.(\\r\\n|.)*$/g;  
+    let _regex = /^(\[(.|\\r\\n)*\])(\\r\\n)*({.*?})?\s?\.*\d+?\.(\\r\\n|.)*$/g;   
     /* get header part of the PGN file */
     //let _match = _regex.exec(pgn);
     let _headerString = pgn.replace(_regex, '$1');
